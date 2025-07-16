@@ -1,0 +1,11 @@
+streamlit
+pandas
+numpy
+plotly
+faiss-cpu
+scikit-learn
+spacy
+sentence-transformers
+matplotlib
+wordcloud
+nltk
