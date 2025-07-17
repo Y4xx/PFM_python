@@ -6,6 +6,7 @@ import sqlite3
 import pandas as pd
 import numpy as np
 import plotly.express as px
+import plotly.graph_objects as go
 from sentence_transformers import SentenceTransformer
 import faiss
 import pickle
@@ -20,12 +21,286 @@ from nltk.corpus import stopwords
 import textwrap
 import uuid  # For generating unique keys
 
-# Initial configuration
+# Enhanced page configuration with light theme
 st.set_page_config(
-    page_title=" Papers Research Assistant",
+    page_title="Research Papers Explorer",
     layout="wide",
-    page_icon="🧠"
+    page_icon="🔬",
+    initial_sidebar_state="expanded"
 )
+
+# Custom CSS for modern light design
+st.markdown("""
+<style>
+    /* Main theme colors */
+    :root {
+        --primary-color: #2E86AB;
+        --secondary-color: #A23B72;
+        --accent-color: #F18F01;
+        --background-color: #FFFFFF;
+        --surface-color: #F8F9FA;
+        --text-primary: #2C3E50;
+        --text-secondary: #5D6D7E;
+        --border-color: #E5E8EB;
+        --success-color: #27AE60;
+        --warning-color: #F39C12;
+        --error-color: #E74C3C;
+    }
+    
+    /* Force light mode */
+    .stApp {
+        background-color: var(--background-color);
+        color: var(--text-primary);
+        width: 100%;
+        text-color: black;
+    }
+    
+    /* Header styling */
+    .main-header {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        padding: 2rem;
+        border-radius: 15px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 20px rgba(46, 134, 171, 0.1);
+    }
+    
+    .main-header h1 {
+        color: white;
+        font-size: 2.5rem;
+        font-weight: 700;
+        margin: 0;
+        text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .main-header p {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 1.1rem;
+        margin: 0.5rem 0 0 0;
+        font-weight: 300;
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: var(--surface-color);
+        border-right: 1px solid var(--border-color);
+    }
+    
+    .sidebar-header {
+        color: white;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        display: flex;
+        height: 100%;
+        
+    }
+    
+    .sidebar-header h2 {
+        margin: 0;
+        font-size: 2rem;
+        font-weight: 600;
+    }
+    
+    /* Chat message styling */
+    .chat-message {
+        padding: 1.5rem;
+        margin: 1rem 0;
+        border-radius: 15px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border-left: 4px solid var(--primary-color);
+    }
+    
+    .user-message {
+        background: linear-gradient(135deg, #EBF3FD, #F0F7FF);
+        border-left-color: var(--primary-color);
+    }
+    
+    .assistant-message {
+        background: linear-gradient(135deg, #F8F9FA, #FFFFFF);
+        border-left-color: var(--secondary-color);
+    }
+    
+    /* Statistics cards */
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        border: 1px solid var(--border-color);
+        margin: 0.5rem 0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 25px rgba(0,0,0,0.12);
+    }
+    
+    .stat-number {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--primary-color);
+        margin: 0;
+    }
+    
+    .stat-label {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    /* Button styling */
+    .stButton > button {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+        border: none;
+        border-radius: 25px;
+        padding: 0.5rem 2rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(46, 134, 171, 0.3);
+    }
+    
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 20px rgba(46, 134, 171, 0.4);
+    }
+    
+    /* Input styling */
+    .stTextInput > div > div > input {
+        border-radius: 10px;
+        border: 2px solid var(--border-color);
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        transition: border-color 0.3s ease;
+    }
+    
+    .stTextInput > div > div > input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(46, 134, 171, 0.1);
+    }
+    
+    /* Selectbox styling */
+    .stSelectbox > div > div > select {
+        border-radius: 10px;
+        border: 2px solid var(--border-color);
+        padding: 0.75rem 1rem;
+    }
+    
+    /* Slider styling */
+    .stSlider > div > div > div > div {
+        background-color: var(--primary-color);
+    }
+    
+    /* Expander styling */
+    .streamlit-expanderHeader {
+        background-color: var(--surface-color);
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+    }
+    
+    /* Metric styling */
+    .metric-container {
+        background: white;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        border: 1px solid var(--border-color);
+        text-align: center;
+    }
+    
+    /* Loading spinner */
+    .stSpinner > div {
+        border-top-color: var(--primary-color);
+    }
+    
+    /* Success/Error messages */
+    .stSuccess {
+        background-color: rgba(39, 174, 96, 0.1);
+        border: 1px solid var(--success-color);
+        border-radius: 8px;
+    }
+    
+    .stError {
+        background-color: rgba(231, 76, 60, 0.1);
+        border: 1px solid var(--error-color);
+        border-radius: 8px;
+    }
+    
+    .stWarning {
+        background-color: rgba(243, 156, 18, 0.1);
+        border: 1px solid var(--warning-color);
+        border-radius: 8px;
+    }
+    
+    /* Chart containers */
+    .chart-container {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        border: 1px solid var(--border-color);
+        margin: 1rem 0;
+    }
+    
+    /* Footer */
+    .footer {
+        background: var(--surface-color);
+        padding: 2rem;
+        border-radius: 10px;
+        margin-top: 3rem;
+        text-align: center;
+        border: 1px solid var(--border-color);
+    }
+    
+    /* Article cards */
+    .article-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.08);
+        border: 1px solid var(--border-color);
+        margin: 1rem 0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .article-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 25px rgba(0,0,0,0.12);
+    }
+    
+    .article-title {
+        color: var(--primary-color);
+        font-weight: 600;
+        font-size: 1.1rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .article-meta {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    
+    /* Responsive design */
+    @media (max-width: 768px) {
+        .main-header h1 {
+            font-size: 2rem;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+        }
+        
+        .chat-message {
+            padding: 1rem;
+        }
+    }
+</style>
+""", unsafe_allow_html=True)
 
 # Download necessary resources
 try:
@@ -318,14 +593,79 @@ def generate_topic_wordcloud(articles_df):
     if not text.strip():
         return None
         
-    wordcloud = WordCloud(width=800, height=400, 
-                          background_color='white', 
-                          stopwords=STOPWORDS, 
-                          max_words=100).generate(text)
+    wordcloud = WordCloud(
+        width=800, 
+        height=400, 
+        background_color='white', 
+        stopwords=STOPWORDS, 
+        max_words=100,
+        colormap='viridis'
+    ).generate(text)
     
     fig, ax = plt.subplots(figsize=(10, 5))
     ax.imshow(wordcloud, interpolation='bilinear')
     ax.axis("off")
+    fig.patch.set_facecolor('white')
+    return fig
+
+# Enhanced plotting functions with better styling
+def create_styled_bar_chart(data, x_col, y_col, title, color_col=None):
+    """Create a styled bar chart with modern design"""
+    fig = px.bar(
+        data, 
+        x=x_col, 
+        y=y_col,
+        title=title,
+        color=color_col if color_col else y_col,
+        color_continuous_scale='Blues',
+        template='plotly_white'
+    )
+    
+    fig.update_layout(
+        title_font_size=20,
+        title_font_color='#2C3E50',
+        font_family='Arial, sans-serif',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=500,
+        margin=dict(l=50, r=50, t=80, b=50)
+    )
+    
+    fig.update_traces(
+        marker_line_color='rgba(46, 134, 171, 0.8)',
+        marker_line_width=1.5,
+        hovertemplate='<b>%{x}</b><br>%{y}<extra></extra>'
+    )
+    
+    return fig
+
+def create_styled_line_chart(data, x_col, y_col, title):
+    """Create a styled line chart with modern design"""
+    fig = px.line(
+        data, 
+        x=x_col, 
+        y=y_col,
+        title=title,
+        markers=True,
+        template='plotly_white'
+    )
+    
+    fig.update_layout(
+        title_font_size=20,
+        title_font_color='#2C3E50',
+        font_family='Arial, sans-serif',
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        height=500,
+        margin=dict(l=50, r=50, t=80, b=50)
+    )
+    
+    fig.update_traces(
+        line=dict(color='#2E86AB', width=3),
+        marker=dict(size=8, color='#A23B72'),
+        hovertemplate='<b>%{x}</b><br>%{y}<extra></extra>'
+    )
+    
     return fig
 
 # Generate intelligent responses
@@ -341,28 +681,26 @@ def generate_intelligent_response(analysis, results):
         domain = entities.get("domains", [None])[0] if entities.get("domains") else None
         
         if results.empty:
-            response.append("🔍 I couldn't find any prominent researchers matching your query.")
+            response.append("🔍 **No researchers found**")
             response.append("💡 Try broadening your criteria or checking the spelling.")
         else:
             domain_info = f" in {domain}" if domain else ""
             response.append(f"👤 **Top researchers{domain_info}:**")
             
-            # Display top authors
+            # Display top authors in cards
             for i, row in results.head(5).iterrows():
-                response.append(f"- **{row['author_name']}** ({row['paper_count']} publications)")
+                response.append(f"**{i+1}.** {row['author_name']} - **{row['paper_count']} publications**")
             
-            # Bar chart visualization
+            # Enhanced bar chart visualization
             if not results.empty:
                 top_authors = results.head(10)
-                fig = px.bar(
+                fig = create_styled_bar_chart(
                     top_authors, 
-                    x='author_name', 
-                    y='paper_count',
-                    labels={'author_name': 'Researcher', 'paper_count': 'Publications'},
-                    title=f'Top Researchers{domain_info}',
-                    color='paper_count'
+                    'author_name', 
+                    'paper_count',
+                    f'Top Researchers{domain_info}',
+                    'paper_count'
                 )
-                fig.update_layout(height=400)
                 visualizations.append(("Publication Count", fig))
     
     elif analysis["intent"] == "trends":
@@ -383,33 +721,36 @@ def generate_intelligent_response(analysis, results):
         results = get_publication_trends(domain=domain, start_year=start_year, end_year=end_year)
         
         if results.empty:
-            response.append("📊 I couldn't identify any publication trends for your query.")
+            response.append("📊 **No publication trends found**")
             response.append("💡 Try with a different domain or time period.")
         else:
             domain_info = f" in {domain}" if domain else ""
-            response.append(f"📈 **Publication trends{domain_info} from {start_year} to {end_year}:**")
+            total_papers = results['paper_count'].sum()
+            avg_papers = results['paper_count'].mean()
             
-            # Line chart visualization
+            response.append(f"📈 **Publication trends{domain_info} ({start_year}-{end_year}):**")
+            response.append(f"📊 **Total papers:** {total_papers:,}")
+            response.append(f"📊 **Average per year:** {avg_papers:.1f}")
+            
+            # Enhanced line chart visualization
             if not results.empty:
-                fig = px.line(
+                fig = create_styled_line_chart(
                     results, 
-                    x='year', 
-                    y='paper_count',
-                    markers=True,
-                    labels={'year': 'Year', 'paper_count': 'Publications'},
-                    title=f'Publication Trends{domain_info}'
+                    'year', 
+                    'paper_count',
+                    f'Publication Trends{domain_info}'
                 )
-                fig.update_layout(height=400)
                 visualizations.append(("Publication Trends", fig))
     
     elif analysis["intent"] == "topics":
         domain = entities.get("domains", [None])[0] if entities.get("domains") else None
         
         if results.empty:
-            response.append("🔍 I couldn't find any articles to analyze research topics.")
+            response.append("🔍 **No articles found for topic analysis**")
         else:
             domain_info = f" in {domain}" if domain else ""
-            response.append(f"🌐 **Main research topics{domain_info}:**")
+            response.append(f"🌐 **Research topics analysis{domain_info}:**")
+            response.append(f"📊 **Analyzed {len(results)} articles**")
             
             # Word cloud visualization
             wordcloud_fig = generate_topic_wordcloud(results)
@@ -422,31 +763,30 @@ def generate_intelligent_response(analysis, results):
         domain = entities.get("domains", [None])[0] if entities.get("domains") else None
         
         if not author_name:
-            response.append("🔍 Please specify an author name to find collaborators.")
+            response.append("🔍 **Author name required**")
             response.append("💡 Example: 'Who collaborates with Yann LeCun?'")
         else:
             collaborators = get_collaborators(author_name, domain=domain)
             
             if collaborators.empty:
-                response.append(f"🔍 I couldn't find collaborators for {author_name}.")
+                response.append(f"🔍 **No collaborators found for {author_name}**")
                 response.append("💡 Try a different spelling or full name.")
             else:
                 response.append(f"🤝 **{author_name}'s frequent collaborators:**")
                 
                 # List collaborators
                 for i, row in collaborators.head(5).iterrows():
-                    response.append(f"- **{row['author_name']}** ({row['collab_count']} joint papers)")
+                    response.append(f"**{i+1}.** {row['author_name']} - **{row['collab_count']} joint papers**")
                 
-                # Bar chart visualization
+                # Enhanced bar chart visualization
                 if not collaborators.empty:
-                    fig = px.bar(
+                    fig = create_styled_bar_chart(
                         collaborators, 
-                        x='author_name', 
-                        y='collab_count',
-                        labels={'author_name': 'Collaborator', 'collab_count': 'Joint Papers'},
-                        title=f'Collaborators of {author_name}'
+                        'author_name', 
+                        'collab_count',
+                        f'Collaborators of {author_name}',
+                        'collab_count'
                     )
-                    fig.update_layout(height=400)
                     visualizations.append(("Collaboration Network", fig))
     
     else:  # Default article search
@@ -454,15 +794,15 @@ def generate_intelligent_response(analysis, results):
         time_periods = entities.get('time_periods', [])
         
         if results.empty:
-            response.append("🔍 I couldn't find any articles matching your search.")
+            response.append("🔍 **No articles found**")
             response.append("💡 Try broadening your search terms or adding synonyms.")
         else:
             domain_info = f" in {domain}" if domain else ""
             year_info = f" since {min(time_periods)}" if time_periods else ""
             
-            response.append(f"📚 Found **{len(results)} relevant articles**{domain_info}{year_info}:")
+            response.append(f"📚 **Found {len(results)} relevant articles**{domain_info}{year_info}")
             
-            # Display top articles
+            # Display top articles in enhanced cards
             for i, row in results.head(3).iterrows():
                 arxiv_link = f"https://arxiv.org/abs/{row['article_id']}"
                 
@@ -471,63 +811,193 @@ def generate_intelligent_response(analysis, results):
                 short_title = title if len(title) <= 80 else f"{title[:77]}..."
                 
                 response.append("---")
-                response.append(f"### [{short_title}]({arxiv_link})")
-                response.append(f"**Authors**: {row['authors']}")
-                response.append(f"**Year**: {row['year']} | **Relevance**: {row['similarity_score']:.2f}")
+                response.append(f"### 📄 [{short_title}]({arxiv_link})")
+                response.append(f"**👥 Authors:** {row['authors']}")
+                response.append(f"**📅 Year:** {row['year']} | **🎯 Relevance:** {row['similarity_score']:.3f}")
                 
                 # DOI link if available
                 if row['doi'] and row['doi'] != 'None':
                     doi_link = f"https://doi.org/{row['doi']}"
-                    response.append(f"**DOI**: [Full paper]({doi_link})")
+                    response.append(f"**🔗 DOI:** [Full paper]({doi_link})")
                 
                 # Abstract with expander
                 if row['abstract']:
-                    with st.expander("View abstract"):
-                        st.write(textwrap.fill(row['abstract'], width=100))
+                    with st.expander("📖 View Abstract", expanded=False):
+                        st.markdown(f"<div style='text-align: justify; line-height: 1.6;'>{row['abstract']}</div>", unsafe_allow_html=True)
             
-            # Relevance score visualization
+            # Enhanced relevance score visualization
             if len(results) > 1:
-                scores_df = results.head(10)[['title', 'similarity_score']]
-                scores_df['title_short'] = scores_df['title'].apply(lambda x: x[:40] + "..." if len(x) > 40 else x)
+                scores_df = results.head(10)[['title', 'similarity_score']].copy()
+                scores_df['title_short'] = scores_df['title'].apply(lambda x: x[:50] + "..." if len(x) > 50 else x)
                 
                 fig = px.bar(
                     scores_df, 
                     x='similarity_score', 
                     y='title_short',
                     orientation='h',
-                    labels={'similarity_score': 'Relevance Score', 'title_short': 'Article'},
                     title='Most Relevant Articles',
                     color='similarity_score',
-                    color_continuous_scale='Bluered'
+                    color_continuous_scale='RdYlBu_r',
+                    template='plotly_white'
                 )
-                fig.update_layout(height=500, showlegend=False)
+                
+                fig.update_layout(
+                    height=600,
+                    showlegend=False,
+                    title_font_size=20,
+                    title_font_color='#2C3E50',
+                    font_family='Arial, sans-serif',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    margin=dict(l=50, r=50, t=80, b=50)
+                )
+                
+                fig.update_traces(
+                    hovertemplate='<b>%{y}</b><br>Relevance: %{x:.3f}<extra></extra>'
+                )
+                
                 visualizations.append(("Article Relevance", fig))
 
     return response, visualizations
 
+# Enhanced UI Functions
+def display_database_stats():
+    """Display database statistics in a modern card layout"""
+    try:
+        conn = get_db_connection()
+        
+        # Get total articles
+        total_articles = pd.read_sql_query("SELECT COUNT(*) as count FROM articles", conn)['count'].iloc[0]
+        
+        # Get total authors
+        total_authors = pd.read_sql_query("SELECT COUNT(DISTINCT author_name) as count FROM authors", conn)['count'].iloc[0]
+        
+        # Get year range
+        year_range = pd.read_sql_query("SELECT MIN(year) as min_year, MAX(year) as max_year FROM articles", conn)
+        min_year = year_range['min_year'].iloc[0]
+        max_year = year_range['max_year'].iloc[0]
+        
+        # Get most popular category
+        category_stats = pd.read_sql_query("""
+            SELECT categories, COUNT(*) as count 
+            FROM articles 
+            WHERE categories IS NOT NULL 
+            GROUP BY categories 
+            ORDER BY count DESC 
+            LIMIT 1
+        """, conn)
+        
+        conn.close()
+        
+        # Display stats in columns
+        col1, col2, col3, col4 = st.columns(4)
+        
+        with col1:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="stat-number">{total_articles:,}</div>
+                <div class="stat-label">Total Articles</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="stat-number">{total_authors:,}</div>
+                <div class="stat-label">Unique Authors</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col3:
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="stat-number">{max_year - min_year + 1}</div>
+                <div class="stat-label">Years Covered</div>
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col4:
+            years_span = f"{min_year}-{max_year}"
+            st.markdown(f"""
+            <div class="stat-card">
+                <div class="stat-number" style="font-size: 1.5rem;">{years_span}</div>
+                <div class="stat-label">Time Range</div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+    except Exception as e:
+        st.error(f"Error loading database statistics: {str(e)}")
+
+def display_search_suggestions():
+    """Display search suggestions with examples"""
+    st.markdown("""
+    <div style="background: linear-gradient(135deg, #F8F9FA, #E9ECEF); padding: 1.5rem; border-radius: 12px; margin: 1rem 0; border: 1px solid #E5E8EB;">
+        <h4 style="color: #2C3E50; margin-bottom: 1rem;">💡 Search Examples</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+            <div>
+                <strong>🔍 Article Search:</strong><br>
+                <em>"machine learning transformers"</em><br>
+                <em>"computer vision attention mechanism"</em>
+            </div>
+            <div>
+                <strong>👤 Author Research:</strong><br>
+                <em>"top researchers in NLP"</em><br>
+                <em>"who are the experts in computer vision"</em>
+            </div>
+            <div>
+                <strong>📊 Trends Analysis:</strong><br>
+                <em>"publication trends in AI since 2020"</em><br>
+                <em>"research growth in machine learning"</em>
+            </div>
+            <div>
+                <strong>🤝 Collaborations:</strong><br>
+                <em>"who collaborates with Geoffrey Hinton"</em><br>
+                <em>"research partners in deep learning"</em>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
 # User interface
-st.title("💬 Papers Research Assistant")
-st.caption("Research scientifique papers companion")
+# st.markdown("""
+# <div class="main-header">
+#     <h1>📚 Research Papers Explorer</h1>
+#     <p>Your intelligent companion for scientific research exploration</p>
+# </div>
+# """, unsafe_allow_html=True)
+
+# Display database statistics
+display_database_stats()
 
 # Initialize conversation history
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
     st.session_state.nlp_analysis = {}  # Cache for NLP analysis
 
-# Sidebar for filters
+# Enhanced sidebar with better styling
 with st.sidebar:
-    st.header("⚙️ Filters")
+    st.markdown("""
+    <div class="sidebar-header">
+        <h2>Search Filters</h2>
+    </div>
+    """, unsafe_allow_html=True)
     
-    # Year filter
+    # Year filter with enhanced styling
+    st.markdown("""
+    <h3 style="color: white;">Publication Period</h3>
+    """, unsafe_allow_html=True)
+    
     min_year, max_year = 2020, datetime.now().year
     selected_years = st.slider(
-        "Publication period", 
+        "Select year range", 
         min_value=min_year, 
         max_value=max_year, 
-        value=(min_year, max_year)
+        value=(min_year, max_year),
+        help="Filter articles by publication year"
     )
     
-    # Domain filter
+    # Domain filter with enhanced styling
+    st.markdown("<h3 style='color: white;'>Research Domain</h3>", unsafe_allow_html=True)
     try:
         conn = get_db_connection()
         categories = pd.read_sql_query("SELECT DISTINCT categories FROM articles", conn)['categories']
@@ -541,38 +1011,103 @@ with st.sidebar:
         cs_categories = sorted([cat for cat in all_categories if cat.startswith('cs.')])
         
         selected_category = st.selectbox(
-            "Research domain", 
-            [""] + cs_categories
+            "Choose a domain", 
+            ["All domains"] + cs_categories,
+            help="Filter by specific research domain"
         )
+        
+        if selected_category == "All domains":
+            selected_category = None
     except:
         selected_category = None
+    
+    # Advanced options
+    st.markdown("<h3 style='color: white;'>Advanced Options</h3>", unsafe_allow_html=True)
+    max_results = st.slider(
+        "Max results", 
+        min_value=10, 
+        max_value=100, 
+        value=50,
+        help="Maximum number of results to return"
+    )
+    
+    # # Clear cache button
+    # if st.button("🗑️ Clear Cache", help="Clear search cache for fresh results"):
+    #     search_cache.clear()
+    #     st.session_state.nlp_analysis = {}
+    #     st.success("Cache cleared successfully!")
+    
+    # Quick stats in sidebar
+    st.markdown("<h3 style='color: white;'>Quick Stats</h3>", unsafe_allow_html=True)
+    try:
+        conn = get_db_connection()
+        recent_papers = pd.read_sql_query(
+            "SELECT COUNT(*) as count FROM articles WHERE year >= 2023", 
+            conn
+        )['count'].iloc[0]
+        conn.close()
+        
+        st.metric("Recent Papers (2023+)", f"{recent_papers:,}")
+    except:
+        pass
 
-# Display conversation history
+# Display search suggestions if no conversation yet
+if not st.session_state.chat_history:
+    display_search_suggestions()
+
+# Display conversation history with enhanced styling
 for msg_idx, msg in enumerate(st.session_state.chat_history):
     if msg["role"] == "user":
-        with st.chat_message("user", avatar="🧑‍💻"):
-            st.write(msg["content"])
+        st.markdown(f"""
+        <div class="chat-message user-message">
+            <div style="display: flex; align-items: center; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.2rem; margin-right: 0.5rem;">🧑‍💻</span>
+                <strong style="color: #2E86AB;">You asked:</strong>
+            </div>
+            <div style="font-size: 1.1rem;">{msg["content"]}</div>
+        </div>
+        """, unsafe_allow_html=True)
     else:
-        with st.chat_message("assistant", avatar="🔬"):
-            st.write(msg["content"])
-            
-            # Display visualizations
-            if "visualizations" in msg:
-                for viz_idx, (title, viz) in enumerate(msg["visualizations"]):
-                    # Generate unique key for each visualization
-                    unique_key = f"viz_{msg_idx}_{viz_idx}_{uuid.uuid4().hex[:8]}"
-                    
-                    if isinstance(viz, plt.Figure):
-                        st.pyplot(viz)
-                    elif hasattr(viz, 'show'):
-                        st.plotly_chart(viz, use_container_width=True, key=unique_key)
+        st.markdown(f"""
+        <div class="chat-message assistant-message">
+            <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                <span style="font-size: 1.2rem; margin-right: 0.5rem;">🔬</span>
+                <strong style="color: #A23B72;">Research Assistant:</strong>
+            </div>
+            <div style="line-height: 1.6;">{msg["content"]}</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Display visualizations with enhanced containers
+        if "visualizations" in msg:
+            for viz_idx, (title, viz) in enumerate(msg["visualizations"]):
+                # Generate unique key for each visualization
+                unique_key = f"viz_{msg_idx}_{viz_idx}_{uuid.uuid4().hex[:8]}"
+                
+                st.markdown(f"""
+                <div class="chart-container">
+                    <h4 style="color: #2C3E50; margin-bottom: 1rem;">📊 {title}</h4>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                if isinstance(viz, plt.Figure):
+                    st.pyplot(viz, use_container_width=True)
+                elif hasattr(viz, 'show'):
+                    st.plotly_chart(viz, use_container_width=True, key=unique_key)
+
+# Enhanced chat input with better styling
+st.markdown("""
+<div style="margin: 2rem 0 1rem 0;">
+    <h3 style="color: #2C3E50; margin-bottom: 1rem;">💬 Ask your research question</h3>
+</div>
+""", unsafe_allow_html=True)
 
 # Handle user input
-if prompt := st.chat_input("Ask about scientific research..."):
+if prompt := st.chat_input("Search for papers, authors, trends, or collaborations...", key="main_input"):
     # Add question to history
     st.session_state.chat_history.append({"role": "user", "content": prompt})
     
-    with st.spinner("Analyzing your query..."):
+    with st.spinner("🔍 Analyzing your query and searching the database..."):
         start_time = time.time()
         
         # Advanced contextual analysis
@@ -581,7 +1116,7 @@ if prompt := st.chat_input("Ask about scientific research..."):
         # Apply filters
         filters = {
             "year_range": selected_years,
-            "domain": selected_category if selected_category else None,
+            "domain": selected_category,
         }
         
         # Handle different intents
@@ -592,7 +1127,8 @@ if prompt := st.chat_input("Ask about scientific research..."):
             if analysis["intent"] == "authors":
                 results = get_top_authors(
                     domain=filters['domain'],
-                    year_range=selected_years
+                    year_range=selected_years,
+                    limit=max_results
                 )
                 
             elif analysis["intent"] == "trends":
@@ -615,28 +1151,38 @@ if prompt := st.chat_input("Ask about scientific research..."):
                 )
                 
             elif analysis["intent"] == "topics":
-                results = cached_semantic_search(analysis["original_query"], filters)
+                results = cached_semantic_search(analysis["original_query"], filters, k=max_results)
                 
             elif analysis["intent"] == "collaborations":
                 # Don't do semantic search for collaborators
                 results = pd.DataFrame()
                 
             else:  # Default article search
-                results = cached_semantic_search(prompt, filters, k=100)
+                results = cached_semantic_search(prompt, filters, k=max_results)
+                
         except Exception as e:
-            st.error(f"Search error: {str(e)}")
+            st.error(f"❌ Search error: {str(e)}")
         
         # Generate response
         try:
             response_lines, visualizations = generate_intelligent_response(analysis, results)
-            response_text = "\n".join(response_lines)
+            response_text = "\n\n".join(response_lines)
         except Exception as e:
             response_text = f"⚠️ Error generating response: {str(e)}"
             visualizations = []
         
         # Calculate response time
         response_time = time.time() - start_time
-        response_text += f"\n\n⏱️ Response generated in {response_time:.2f} seconds"
+        
+        # Add performance metrics
+        performance_info = f"""
+        
+        ⏱️ **Performance:** Response generated in {response_time:.2f}s  
+        🔍 **Query Type:** {analysis['intent'].title()}  
+        📊 **Results Found:** {len(results) if not results.empty else 0}
+        """
+        
+        response_text += performance_info
         
         # Create assistant message
         assistant_msg = {
@@ -648,11 +1194,28 @@ if prompt := st.chat_input("Ask about scientific research..."):
         # Add to history
         st.session_state.chat_history.append(assistant_msg)
         
+        # Show success message
+        st.success("✅ Query processed successfully!")
+        
         # Reload interface
         st.rerun()
 
-
-
-# Footer
-st.divider()
-st.caption("© 2025 Papers Research Assistant | Samia Regrai & Nouhaila Ennaouaoui")
+# Enhanced footer
+st.markdown("""
+<div class="footer">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap;">
+        <div>
+            <h4 style="color: #2C3E50; margin: 0;">📚 Research Papers Explorer</h4>
+            <p style="color: #5D6D7E; margin: 0.5rem 0 0 0;">
+                Powered by advanced NLP and semantic search technology
+            </p>
+        </div>
+        <div style="text-align: right;">
+            <p style="color: #5D6D7E; margin: 0; font-size: 0.9rem;">
+                © 2025 Research Assistant<br>
+                <strong>Yassine OUJAMA & Yassir M'SAAD</strong>
+            </p>
+        </div>
+    </div>
+</div>
+""", unsafe_allow_html=True)
