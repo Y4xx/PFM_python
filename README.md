@@ -6,6 +6,40 @@ Ce projet propose un chatbot intelligent de recherche scientifique basé sur les
 
 ---
 
+## Structure des Dossiers et Fichiers
+
+L’organisation du projet est illustrée ci-dessous :
+
+![image1](image1)
+
+- **data/**  
+  Contient les jeux de données ArXiv (articles et auteurs, versions nettoyées ou originales), ainsi que le dossier `data_prep` pour les notebooks de préparation, indexation et stockage.
+  - `data_prep/data-prep.ipynb` : Préparation des données
+  - `data_prep/indexation.ipynb` : Indexation vectorielle
+  - `data_prep/stockage.ipynb` : Stockage relationnel
+
+- **docs/**  
+  Documentation technique, rapport LaTeX et PDF, bibliographie, script de nettoyage.
+  - `rapport_technique.tex` : Rapport technique principal (LaTeX)
+  - `rapport_technique01.pdf` : Rapport technique compilé (PDF)
+  - `README.md` : Guide technique de la documentation
+  - `references.bib` : Bibliographie BibTeX
+  - `cleanup.sh` : Script de nettoyage des fichiers temporaires
+
+- **myenv/**  
+  Environnement virtuel Python du projet (binaires, librairies, configuration).
+
+- **racine du projet**  
+  - `.gitignore` : Fichiers ignorés par Git
+  - `app.py` : Application principale Streamlit
+  - `article_ids.pkl` : Identifiants des articles (pickle)
+  - `arxiv_relational.db` : Base de données SQLite générée
+  - `faiss_index.bin` : Index vectoriel FAISS
+  - `requirements.txt` : Dépendances Python nécessaires
+  - `runtime.txt` : Informations sur l’environnement d’exécution
+
+---
+
 ## Objectifs du Projet
 
 - Concevoir un assistant conversationnel capable de comprendre et de traiter des requêtes scientifiques complexes.
