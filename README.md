@@ -14,9 +14,9 @@ L’organisation du projet est illustrée ci-dessous :
 
 - **data/**  
   Contient les jeux de données ArXiv (articles et auteurs, versions nettoyées ou originales), ainsi que le dossier `data_prep` pour les notebooks de préparation, indexation et stockage.
-  - `data_prep/data-prep.ipynb` : Préparation des données
-  - `data_prep/indexation.ipynb` : Indexation vectorielle
-  - `data_prep/stockage.ipynb` : Stockage relationnel
+  - `data_cleaning/data-cleaning.ipynb` : Préparation des données
+  - `data_cleaning/indexing.ipynb` : Indexation vectorielle
+  - `data_cleaning/storing.ipynb` : Stockage relationnel
 
 - **docs/**  
   Documentation technique, rapport LaTeX et PDF, bibliographie, script de nettoyage.
@@ -33,7 +33,7 @@ L’organisation du projet est illustrée ci-dessous :
   - `.gitignore` : Fichiers ignorés par Git
   - `app.py` : Application principale Streamlit
   - `article_ids.pkl` : Identifiants des articles (pickle)
-  - `arxiv_relational.db` : Base de données SQLite générée
+  - `arxiv_database.db` : Base de données SQLite générée
   - `faiss_index.bin` : Index vectoriel FAISS
   - `requirements.txt` : Dépendances Python nécessaires
   - `runtime.txt` : Informations sur l’environnement d’exécution

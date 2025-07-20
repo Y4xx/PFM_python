@@ -328,7 +328,7 @@ def load_resources():
     
     # Load authors list
     try:
-        conn = sqlite3.connect(os.path.join(BASE_DIR, "arxiv_relational.db"))
+        conn = sqlite3.connect(os.path.join(BASE_DIR, "arxiv_database.db"))
         authors_df = pd.read_sql_query("SELECT DISTINCT author_name FROM authors", conn)
         conn.close()
         authors = authors_df['author_name'].dropna().astype(str).tolist()
@@ -342,7 +342,7 @@ index, article_ids, model, authors = load_resources()
 # Create new SQLite connection
 def get_db_connection():
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.join(BASE_DIR, "arxiv_relational.db")
+    db_path = os.path.join(BASE_DIR, "arxiv_database.db")
     conn = sqlite3.connect(db_path, check_same_thread=False)
     return conn
 
